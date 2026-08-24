@@ -28,7 +28,7 @@
   "crons": [
     {
       "path": "/api/v1/cron/pending-orders",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
