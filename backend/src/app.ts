@@ -51,8 +51,15 @@ if (process.env.FRONTEND_URL) {
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps) or if allowed/Vercel domain
-      if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+      // Allow requests with no origin (like mobile apps) or if allowed/Vercel/Render/Localhost domains
+      if (
+        !origin ||
+        allowedOrigins.indexOf(origin) !== -1 ||
+        origin.includes('vercel.app') ||
+        origin.includes('onrender.com') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1')
+      ) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
