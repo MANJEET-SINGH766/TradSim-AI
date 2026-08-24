@@ -18,24 +18,8 @@ dotenv.config();
 
 const app: Application = express();
 
-// Security Middleware (Helmet headers and request rate limiters)
+// Security Middleware (Helmet headers)
 app.use(helmet());
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP address to 100 requests per window
-  skip: () => process.env.NODE_ENV === 'test', // Bypass limits during test executions
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    error: {
-      code: 'TOO_MANY_REQUESTS',
-      message: 'Too many requests from this network. Please wait 15 minutes and retry.',
-    },
-  },
-});
-app.use('/api', limiter);
 
 const allowedOrigins = [
   'http://localhost:3000',
@@ -68,9 +52,50 @@ app.use(
     credentials: true,
   })
 );
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP address to 100 requests per window
+  skip: () => process.env.NODE_ENV === 'test', // Bypass limits during test executions
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'TOO_MANY_REQUESTS',
+      message: 'Too many requests from this network. Please wait 15 minutes and retry.',
+    },
+  },
+});
+app.use('/api', limiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+import { connectDB } from './config/db';
+import { TradingService } from './services/tradingService';
+
+// Ensure MongoDB is connected before handling any requests
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Cron route for Vercel Cron Job to process pending orders
+app.get('/api/v1/cron/pending-orders', async (req: Request, res: Response) => {
+  try {
+    await TradingService.checkAndProcessPendingOrders();
+    res.status(200).json({ success: true, message: 'Pending orders processed successfully' });
+  } catch (error: any) {
+    console.error('Cron job failed:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Mount Routes
 app.use('/api/v1/auth', authRoutes);
