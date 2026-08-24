@@ -19,7 +19,7 @@ import { Menu, X, LayoutDashboard, Briefcase, History, LogOut, Star, ArrowUpRigh
     const [netWorth, setNetWorth] = useState<number | null>(null);
     const [totalPnL, setTotalPnL] = useState<number | null>(null);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://trad-sim-ai-backend.vercel.app/api/v1';
 
     const fetchWatchlist = async () => {
       try {

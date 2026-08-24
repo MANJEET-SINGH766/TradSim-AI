@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   await connectDB();
 
-  // Run the background order checker interval locally or if not on Vercel
+
   if (!process.env.VERCEL) {
     setInterval(() => {
       TradingService.checkAndProcessPendingOrders();

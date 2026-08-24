@@ -41,7 +41,7 @@ export default function DashboardPage() {
   const [aiAuditLoading, setAiAuditLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://trad-sim-ai-backend.vercel.app/api/v1';
 
   const getChartData = () => {
     if (!portfolio) return [];
