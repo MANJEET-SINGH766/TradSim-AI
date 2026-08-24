@@ -76,8 +76,11 @@ app.use(cookieParser());
 import { connectDB } from './config/db';
 import { TradingService } from './services/tradingService';
 
-// Ensure MongoDB is connected before handling any requests
+// Ensure MongoDB is connected before handling any requests (skip OPTIONS preflight)
 app.use(async (req: Request, res: Response, next: NextFunction) => {
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
   try {
     await connectDB();
     next();
