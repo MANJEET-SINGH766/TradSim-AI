@@ -1,0 +1,8 @@
+{
+  "name": "tradesim-ai-monorepo",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+}
