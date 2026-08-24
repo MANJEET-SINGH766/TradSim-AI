@@ -6,7 +6,7 @@ const authPaths = ['/login', '/register'];
 // Defining paths that require authentication
 const protectedPaths = ['/dashboard', '/portfolio', '/orders', '/transactions', '/watchlist', '/ai', '/stocks'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
   const { pathname } = request.nextUrl;
 
@@ -24,7 +24,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Matching routes for middleware checks
+// Matching routes for proxy checks
 export const config = {
   matcher: [
     /*
@@ -37,4 +37,4 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
-export type Middleware = typeof middleware;
+export type Proxy = typeof proxy;

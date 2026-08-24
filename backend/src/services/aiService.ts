@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export class AIService {
   /**
@@ -30,32 +30,39 @@ export class AIService {
     }
 
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: 'You are a professional educational financial advisor. Write brief, educational stock price reviews in exactly two sentences.',
-      });
-
-      const prompt = `Analyze the following stock details:
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Analyze the following stock details:
 * Stock Symbol: ${symbol}
 * Current Price: ₹${price.toLocaleString('en-IN')}
 * Today's Price Change: ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${change >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)
 * Today's Session: Open: ₹${open.toLocaleString('en-IN')}, High: ₹${high.toLocaleString('en-IN')}, Low: ₹${low.toLocaleString('en-IN')}
 
-Write a concise, friendly 2-sentence analysis of this stock's current price behavior. Highlight key support/resistance levels or short-term trends based strictly on the session range. Keep the tone professional but easy to understand for beginners.`;
-
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
+Write a concise, friendly 2-sentence analysis of this stock's current price behavior. Highlight key support/resistance levels or short-term trends based strictly on the session range. Keep the tone professional but easy to understand for beginners.`,
+        config: {
+          systemInstruction: 'You are a professional educational financial advisor. Write brief, educational stock price reviews in exactly two sentences.',
           temperature: 0.7,
           maxOutputTokens: 150,
-        },
+        }
       });
 
-      return result.response.text()?.trim() || 'AI Summary could not be parsed.';
-    } catch (error) {
+      return result.text?.trim() || 'AI Summary could not be parsed.';
+    } catch (error: any) {
       console.error('Gemini API request failed:', error);
-      return `Gemini service error: ${(error as Error).message}. Falling back to default data checks.`;
+      const status = error.status || error.statusCode || (error.response && error.response.status) || 'UNKNOWN';
+      const message = error.message || 'No error message provided';
+      let category = 'configuration';
+      
+      if (status === 401 || status === 403 || message.toLowerCase().includes('key') || message.toLowerCase().includes('auth') || message.toLowerCase().includes('permission')) {
+        category = 'authentication';
+      } else if (status === 404 || message.toLowerCase().includes('model')) {
+        category = 'model';
+      } else if (status === 429 || message.toLowerCase().includes('quota') || message.toLowerCase().includes('limit') || message.toLowerCase().includes('rate')) {
+        category = 'quota';
+      }
+      
+      return `Gemini service error [Category: ${category}, Status: ${status}]: ${message}`;
     }
   }
 
@@ -78,11 +85,7 @@ Write a concise, friendly 2-sentence analysis of this stock's current price beha
     }
 
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        systemInstruction: 'You are a professional educational portfolio auditor. Write brief, educational portfolio audits in exactly three sentences.',
-      });
+      const ai = new GoogleGenAI({ apiKey });
 
       const holdingsText = holdings
         .map(
@@ -100,18 +103,32 @@ ${holdingsText || 'None (100% Cash)'}
 
 Write a concise, friendly 3-sentence audit of this portfolio. Check if their investments are safely diversified or too heavily concentrated, and suggest which sector or asset class they should look at next to balance their risk. Keep it beginner-friendly.`;
 
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
+      const result = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+          systemInstruction: 'You are a professional educational portfolio auditor. Write brief, educational portfolio audits in exactly three sentences.',
           temperature: 0.7,
           maxOutputTokens: 200,
-        },
+        }
       });
 
-      return result.response.text()?.trim() || 'AI Portfolio Audit could not be parsed.';
-    } catch (error) {
+      return result.text?.trim() || 'AI Portfolio Audit could not be parsed.';
+    } catch (error: any) {
       console.error('Gemini Portfolio Audit failed:', error);
-      return `Gemini audit service error: ${(error as Error).message}.`;
+      const status = error.status || error.statusCode || (error.response && error.response.status) || 'UNKNOWN';
+      const message = error.message || 'No error message provided';
+      let category = 'configuration';
+      
+      if (status === 401 || status === 403 || message.toLowerCase().includes('key') || message.toLowerCase().includes('auth') || message.toLowerCase().includes('permission')) {
+        category = 'authentication';
+      } else if (status === 404 || message.toLowerCase().includes('model')) {
+        category = 'model';
+      } else if (status === 429 || message.toLowerCase().includes('quota') || message.toLowerCase().includes('limit') || message.toLowerCase().includes('rate')) {
+        category = 'quota';
+      }
+      
+      return `Gemini audit service error [Category: ${category}, Status: ${status}]: ${message}`;
     }
   }
 }
