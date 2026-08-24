@@ -29,15 +29,15 @@ export interface HistoricalPricePoint {
 }
 
 /**
- * Service to manage all external communications with Yahoo Finance API
+ * Service to manage external market data communications via Yahoo Finance.
  */
 export class MarketService {
+  
   /**
    * Search for Indian stock tickers matching a user query string
    */
   static async searchStocks(query: string): Promise<StockSearchResult[]> {
     try {
-      // Execute the search on Yahoo Finance with a larger quotesCount to fetch lower-ranked equities
       const searchResult = await yahooFinance.search(query, {
         newsCount: 0,
         quotesCount: 20,
@@ -49,16 +49,11 @@ export class MarketService {
         throw error;
       }
 
-      // Filter and map matching stocks (prioritizing NSE and BSE exchanges, strictly filtering to equities)
       return searchResult.quotes
         .filter((quote: any) => {
-          // Reject non-equity listings (mutual funds, ETFs, indexes) to prevent noise
           if (quote.quoteType !== 'EQUITY') return false;
-
           const exchange = quote.exchange;
           const symbol = quote.symbol || '';
-
-          // Filter to match Indian equity tickers
           return (
             exchange === 'NSI' ||
             exchange === 'BSE' ||
@@ -72,11 +67,7 @@ export class MarketService {
           exchange: quote.symbol.endsWith('.NS') ? 'NSE' : 'BSE',
         }));
     } catch (error: any) {
-      if (error.code === 'PARSING_FAILURE') {
-        console.error(`[PARSING_FAILURE] Search parse mismatch: ${error.message}`);
-      } else {
-        console.error(`[API_NETWORK_FAILURE] Search query failed: ${error.message}`);
-      }
+      console.error('[Yahoo API] Search query failed:', error.message);
       return [];
     }
   }
@@ -87,15 +78,12 @@ export class MarketService {
   static async getStockQuote(symbol: string): Promise<StockQuote | null> {
     try {
       const quote = await yahooFinance.quote(symbol);
-
       if (!quote) {
-        // Distinguish: Invalid Symbol
         const error = new Error(`Stock with symbol ${symbol} was not found (Invalid Symbol).`);
         (error as any).code = 'INVALID_SYMBOL';
         throw error;
       }
 
-      // Check for parsing/response-format failure (missing essential quote fields)
       if (
         quote.symbol === undefined ||
         quote.regularMarketPrice === undefined ||
@@ -118,14 +106,7 @@ export class MarketService {
         volume: quote.regularMarketVolume || 0,
       };
     } catch (error: any) {
-      if (error.code === 'INVALID_SYMBOL') {
-        console.error(`[INVALID_SYMBOL] Stock ${symbol} is invalid.`);
-      } else if (error.code === 'PARSING_FAILURE') {
-        console.error(`[PARSING_FAILURE] Parse mismatch on ${symbol}: ${error.message}`);
-      } else {
-        // All other errors (timeouts, blockages, crumb errors) are API/Network failures
-        console.error(`[API_NETWORK_FAILURE] Yahoo Finance request failed for ${symbol}: ${error.message}`);
-      }
+      console.error(`[Yahoo API] Quote lookup failed for ${symbol}:`, error.message);
       return null;
     }
   }
@@ -138,31 +119,29 @@ export class MarketService {
     symbol: string,
     range: '1W' | '1M' | '1Y' = '1M'
   ): Promise<HistoricalPricePoint[]> {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (range) {
+      case '1W':
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case '1M':
+        startDate.setMonth(endDate.getMonth() - 1);
+        break;
+      case '1Y':
+        startDate.setFullYear(endDate.getFullYear() - 1);
+        break;
+    }
+
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+
     try {
-      const endDate = new Date();
-      let startDate = new Date();
-
-      switch (range) {
-        case '1W':
-          startDate.setDate(endDate.getDate() - 7);
-          break;
-        case '1M':
-          startDate.setMonth(endDate.getMonth() - 1);
-          break;
-        case '1Y':
-          startDate.setFullYear(endDate.getFullYear() - 1);
-          break;
-      }
-
-      // Format dates to ISO strings (YYYY-MM-DD)
-      const startStr = startDate.toISOString().split('T')[0];
-      const endStr = endDate.toISOString().split('T')[0];
-
-      // Query historical data from Yahoo Finance using modern chart() endpoint to avoid deprecated ripHistorical warnings
       const results = await yahooFinance.chart(symbol, {
         period1: startStr,
         period2: endStr,
-        interval: '1d', // daily close interval
+        interval: '1d',
       });
 
       if (!results || !results.quotes || !Array.isArray(results.quotes)) {
@@ -171,7 +150,6 @@ export class MarketService {
         throw error;
       }
 
-      // Map response to simplified price point array
       return results.quotes
         .filter((item: any) => item.date !== undefined && item.close !== undefined)
         .map((item: any) => ({
@@ -180,12 +158,9 @@ export class MarketService {
         }))
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } catch (error: any) {
-      if (error.code === 'PARSING_FAILURE') {
-        console.error(`[PARSING_FAILURE] History parse mismatch on ${symbol}: ${error.message}`);
-      } else {
-        console.error(`[API_NETWORK_FAILURE] History query failed for ${symbol}: ${error.message}`);
-      }
+      console.error(`[Yahoo API] Chart history lookup failed for ${symbol}:`, error.message);
       return [];
     }
   }
 }
+

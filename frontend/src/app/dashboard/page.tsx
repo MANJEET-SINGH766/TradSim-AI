@@ -17,14 +17,59 @@ interface PortfolioSummary {
   holdings: any[];
 }
 
+interface PendingOrder {
+  _id: string;
+  symbol: string;
+  type: 'BUY' | 'SELL';
+  orderType: 'LIMIT' | 'STOP_LOSS';
+  quantity: number;
+  triggerPrice: number;
+  createdAt: string;
+}
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
   const [watchlistQuotes, setWatchlistQuotes] = useState<any[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingLoading, setPendingLoading] = useState(true);
   const [error, setError] = useState('');
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+  const fetchPendingOrders = async () => {
+    try {
+      const res = await fetch(`${API_URL}/orders/pending`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPendingOrders(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load pending orders:', err);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/orders/pending/${orderId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPendingOrders(prev => prev.filter(o => o._id !== orderId));
+      } else {
+        alert(data.error?.message || 'Failed to cancel order.');
+      }
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+    }
+  };
 
   const fetchWatchlist = async () => {
     try {
@@ -84,6 +129,7 @@ export default function DashboardPage() {
     if (user) {
       fetchPortfolio();
       fetchWatchlist();
+      fetchPendingOrders();
     }
   }, [user]);
 
@@ -227,6 +273,61 @@ export default function DashboardPage() {
             <div className="bg-white/40 border border-dashed border-slate-200 p-8 rounded-2xl text-center text-slate-400 text-xs font-bold">
               <Star size={24} className="mx-auto mb-2 text-slate-300" />
               Your watchlist is empty. Go to a stock's page and click the star to pin it here.
+            </div>
+          )}
+        </div>
+
+        {/* User Pending Orders Feed */}
+        <div className="space-y-4 relative z-10 pt-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={18} className="text-indigo-600" />
+            <h3 className="text-lg font-bold text-slate-800 tracking-tight">Active Pending Orders</h3>
+          </div>
+          {pendingLoading ? (
+            <div className="py-4 flex flex-col items-center gap-2 text-slate-400 font-bold text-[10px]">
+              <div className="w-5 h-5 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin" />
+              Loading pending orders...
+            </div>
+          ) : pendingOrders.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {pendingOrders.map((order) => (
+                <div
+                  key={order._id}
+                  className="bg-white/70 backdrop-blur-md border border-white p-5 rounded-2xl flex justify-between items-center group shadow-sm shadow-indigo-500/2"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-slate-800 text-sm block">
+                        {order.symbol}
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide ${
+                        order.type === 'BUY' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-655 border border-red-100'
+                      }`}>
+                        {order.type}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide bg-slate-100 text-slate-500 border border-slate-200">
+                        {order.orderType}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-semibold block mt-1">
+                      Qty: {order.quantity} shares &bull; Trigger: ₹{order.triggerPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => handleCancelOrder(order._id)}
+                      className="px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-650 hover:text-red-700 text-[10px] font-extrabold transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white/40 border border-dashed border-slate-200 p-8 rounded-2xl text-center text-slate-400 text-xs font-bold">
+              <TrendingUp size={24} className="mx-auto mb-2 text-slate-350" />
+              No active pending orders. Set Limit or Stop-Loss orders on the stock details page.
             </div>
           )}
         </div>

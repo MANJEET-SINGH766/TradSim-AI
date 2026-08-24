@@ -419,6 +419,8 @@ export default function StockDetailPage() {
 function OrderTicket({ quote }: { quote: StockQuote }) {
   const { user, updateBalance } = useAuth();
   const [type, setType] = useState<'BUY' | 'SELL'>('BUY');
+  const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT' | 'STOP_LOSS'>('MARKET');
+  const [triggerPrice, setTriggerPrice] = useState<string>(quote.price.toString());
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -427,7 +429,8 @@ function OrderTicket({ quote }: { quote: StockQuote }) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
   
   const price = quote.price;
-  const estimatedValue = price * quantity;
+  const targetPrice = orderType === 'MARKET' ? price : (parseFloat(triggerPrice) || price);
+  const estimatedValue = targetPrice * quantity;
   const virtualBalance = user?.virtualBalance || 0;
   
   const canSubmit = type === 'BUY' ? virtualBalance >= estimatedValue : true;
@@ -439,24 +442,41 @@ function OrderTicket({ quote }: { quote: StockQuote }) {
     setLoading(true);
 
     try {
+      const bodyPayload: any = {
+        symbol: quote.symbol,
+        quantity,
+        type,
+        orderType,
+      };
+
+      if (orderType !== 'MARKET') {
+        const parsedTrigger = parseFloat(triggerPrice);
+        if (isNaN(parsedTrigger) || parsedTrigger <= 0) {
+          setError('Please enter a valid trigger price.');
+          setLoading(false);
+          return;
+        }
+        bodyPayload.triggerPrice = parsedTrigger;
+      }
+
       const res = await fetch(`${API_URL}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          symbol: quote.symbol,
-          quantity,
-          type,
-        }),
+        body: JSON.stringify(bodyPayload),
         credentials: 'include',
       });
 
       const data = await res.json();
 
       if (res.ok && data.success) {
-        setSuccess(`Successfully ${type === 'BUY' ? 'bought' : 'sold'} ${quantity} shares of ${quote.symbol}!`);
-        updateBalance(data.data.newBalance);
+        if (orderType === 'MARKET') {
+          setSuccess(`Successfully ${type === 'BUY' ? 'bought' : 'sold'} ${quantity} shares of ${quote.symbol}!`);
+          updateBalance(data.data.newBalance);
+        } else {
+          setSuccess(`Placed ${orderType} order to ${type} ${quantity} shares of ${quote.symbol} at trigger price ₹${parseFloat(triggerPrice).toFixed(2)}!`);
+        }
         setQuantity(1);
       } else {
         setError(data.error?.message || 'Order failed to execute.');
@@ -519,6 +539,45 @@ function OrderTicket({ quote }: { quote: StockQuote }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5" htmlFor="orderType">
+              ORDER TYPE
+            </label>
+            <select
+              id="orderType"
+              value={orderType}
+              onChange={(e) => {
+                setOrderType(e.target.value as any);
+                setTriggerPrice(quote.price.toString());
+                setError('');
+                setSuccess('');
+              }}
+              className="w-full px-4 py-2.5 rounded-xl bg-white/85 border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 outline-none transition-all text-xs font-bold"
+            >
+              <option value="MARKET">MARKET</option>
+              <option value="LIMIT">LIMIT</option>
+              <option value="STOP_LOSS">STOP LOSS</option>
+            </select>
+          </div>
+
+          {orderType !== 'MARKET' && (
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5" htmlFor="triggerPrice">
+                TRIGGER PRICE (₹)
+              </label>
+              <input
+                id="triggerPrice"
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={triggerPrice}
+                onChange={(e) => setTriggerPrice(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl bg-white/85 border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 outline-none transition-all text-xs font-bold"
+              />
+            </div>
+          )}
+
+          <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5" htmlFor="qty">
               QUANTITY
             </label>
@@ -535,10 +594,10 @@ function OrderTicket({ quote }: { quote: StockQuote }) {
 
           <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-100">
             <div className="flex justify-between text-[10px] font-bold text-slate-400">
-              <span>EST. SHARE PRICE</span>
-              <span className="text-slate-700">₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              <span>{orderType === 'MARKET' ? 'EST. SHARE PRICE' : 'TRIGGER PRICE'}</span>
+              <span className="text-slate-700">₹{targetPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
-            <div className="flex justify-between text-[10px] font-bold text-slate-450">
+            <div className="flex justify-between text-[10px] font-bold text-slate-455">
               <span>{type === 'BUY' ? 'EST. TOTAL COST' : 'EST. TOTAL CREDIT'}</span>
               <span className="text-slate-900 font-extrabold">₹{estimatedValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>

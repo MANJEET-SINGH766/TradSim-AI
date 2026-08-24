@@ -1,6 +1,7 @@
 import { User } from '../models/User';
 import { Holding } from '../models/Holding';
 import { Transaction } from '../models/Transaction';
+import { PendingOrder } from '../models/PendingOrder';
 import { MarketService } from './marketService';
 
 export interface OrderResult {
@@ -197,6 +198,97 @@ export class TradingService {
         );
       }
       throw new Error(`Order execution failed: ${(error as Error).message}. Stock holdings restored.`);
+    }
+  }
+
+  /**
+   * Helper to execute a BUY or SELL order at a predefined execution price
+   */
+  static async executeOrderAtPrice(
+    userId: string,
+    symbol: string,
+    quantity: number,
+    type: 'BUY' | 'SELL',
+    price: number
+  ): Promise<OrderResult> {
+    const totalValue = price * quantity;
+    if (type === 'BUY') {
+      return await this.executeBuyOrder(userId, symbol, quantity, price, totalValue);
+    } else {
+      return await this.executeSellOrder(userId, symbol, quantity, price, totalValue);
+    }
+  }
+
+  /**
+   * Periodically check and trigger pending LIMIT and STOP_LOSS orders
+   */
+  static async checkAndProcessPendingOrders(): Promise<void> {
+    try {
+      const pendingOrders = await PendingOrder.find({}).exec();
+      if (pendingOrders.length === 0) return;
+
+      const uniqueSymbols = Array.from(new Set(pendingOrders.map(o => o.symbol)));
+
+      const quotesMap: Record<string, number> = {};
+      await Promise.all(
+        uniqueSymbols.map(async symbol => {
+          try {
+            const quote = await MarketService.getStockQuote(symbol);
+            if (quote) {
+              quotesMap[symbol] = quote.price;
+            }
+          } catch (error: any) {
+            console.error(`[Pending Orders] Failed to fetch quote for ${symbol}:`, error.message);
+          }
+        })
+      );
+
+      for (const order of pendingOrders) {
+        const currentPrice = quotesMap[order.symbol];
+        if (currentPrice === undefined) continue;
+
+        let isTriggered = false;
+
+        if (order.type === 'BUY') {
+          if (order.orderType === 'LIMIT' && currentPrice <= order.triggerPrice) {
+            isTriggered = true;
+          } else if (order.orderType === 'STOP_LOSS' && currentPrice >= order.triggerPrice) {
+            isTriggered = true;
+          }
+        } else if (order.type === 'SELL') {
+          if (order.orderType === 'LIMIT' && currentPrice >= order.triggerPrice) {
+            isTriggered = true;
+          } else if (order.orderType === 'STOP_LOSS' && currentPrice <= order.triggerPrice) {
+            isTriggered = true;
+          }
+        }
+
+        if (isTriggered) {
+          console.log(`[Pending Orders] Triggered ${order.orderType} ${order.type} for ${order.symbol} @ current ₹${currentPrice} (Trigger: ₹${order.triggerPrice})`);
+          try {
+            await this.executeOrderAtPrice(
+              order.userId.toString(),
+              order.symbol,
+              order.quantity,
+              order.type,
+              currentPrice
+            );
+            await PendingOrder.findByIdAndDelete(order._id);
+            console.log(`[Pending Orders] Executed pending order ${order._id}`);
+          } catch (error: any) {
+            console.error(`[Pending Orders] Execution failed for order ${order._id}:`, error.message);
+            if (
+              error.message.includes('Insufficient virtual balance') || 
+              error.message.includes('Insufficient stock holdings')
+            ) {
+              await PendingOrder.findByIdAndDelete(order._id);
+              console.log(`[Pending Orders] Cancelled invalid pending order ${order._id}: ${error.message}`);
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('[Pending Orders] Error in cron trigger:', err.message);
     }
   }
 }
