@@ -19,7 +19,7 @@ import { Menu, X, LayoutDashboard, Briefcase, History, LogOut, Star, ArrowUpRigh
     const [netWorth, setNetWorth] = useState<number | null>(null);
     const [totalPnL, setTotalPnL] = useState<number | null>(null);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tradsim-ai.onrender.com/api/v1';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
     const fetchWatchlist = async () => {
       try {
