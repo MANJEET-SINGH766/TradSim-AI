@@ -18,6 +18,9 @@ dotenv.config();
 
 const app: Application = express();
 
+// Trust Render's proxy headers for accurate client IP rate limiting
+app.set('trust proxy', 1);
+
 // Security Middleware (Helmet headers)
 app.use(helmet());
 
