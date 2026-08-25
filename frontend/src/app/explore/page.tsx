@@ -28,7 +28,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://trad-sim-ai-backend.vercel.app/api/v1';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tradsim-ai.onrender.com/api/v1';
 
   const sectors: SectorInfo[] = [
     {

@@ -30,7 +30,7 @@ export default function PortfolioPage() {
   const [sortBy, setSortBy] = useState<'symbol' | 'value' | 'pnl'>('value');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://trad-sim-ai-backend.vercel.app/api/v1';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tradsim-ai.onrender.com/api/v1';
 
   const handleSort = (field: 'symbol' | 'value' | 'pnl') => {
     if (sortBy === field) {

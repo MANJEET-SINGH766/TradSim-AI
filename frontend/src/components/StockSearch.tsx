@@ -18,7 +18,7 @@ export default function StockSearch() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://trad-sim-ai-backend.vercel.app/api/v1';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tradsim-ai.onrender.com/api/v1';
 
   // Close dropdown when clicking outside the component
   useEffect(() => {

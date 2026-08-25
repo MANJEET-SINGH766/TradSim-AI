@@ -52,7 +52,7 @@ export default function StockDetailPage() {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [aiLoading, setAiLoading] = useState(true);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://trad-sim-ai-backend.vercel.app/api/v1';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tradsim-ai.onrender.com/api/v1';
 
   useEffect(() => {
     setMounted(true);
@@ -426,7 +426,7 @@ function OrderTicket({ quote }: { quote: StockQuote }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://trad-sim-ai-backend.vercel.app/api/v1';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tradsim-ai.onrender.com/api/v1';
   
   const price = quote.price;
   const targetPrice = orderType === 'MARKET' ? price : (parseFloat(triggerPrice) || price);
