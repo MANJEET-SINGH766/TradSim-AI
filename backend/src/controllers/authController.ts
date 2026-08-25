@@ -35,7 +35,7 @@ const setCookie = (res: Response, token: string): void => {
   res.cookie('token', token, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'strict',
+    sameSite: isProduction ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
   });
 };
