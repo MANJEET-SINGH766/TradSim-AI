@@ -1,13 +1,20 @@
+process.env.NODE_ENV = 'test';
+const testMongoUri = process.env.MONGO_URI_TEST || process.env.MONGODB_URI || 'mongodb://localhost:27017/tradesim-test';
+process.env.MONGODB_URI = testMongoUri;
+
 import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../app';
 import { User } from '../models/User';
+import { Watchlist } from '../models/Watchlist';
+import { PendingOrder } from '../models/PendingOrder';
 
 describe('Express API Route Integration Tests', () => {
   // 1. Connect to local test database before starting tests
   beforeAll(async () => {
-    const mongoUri = process.env.MONGO_URI_TEST || 'mongodb://localhost:27017/tradesim-test';
-    await mongoose.connect(mongoUri);
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect(testMongoUri);
+    }
   }, 20000);
 
   // 2. Close connection after completing all tests
@@ -15,9 +22,11 @@ describe('Express API Route Integration Tests', () => {
     await mongoose.connection.close();
   });
 
-  // 3. Reset User database before each test
+  // 3. Reset database collections before each test
   beforeEach(async () => {
     await User.deleteMany({});
+    await Watchlist.deleteMany({});
+    await PendingOrder.deleteMany({});
   });
 
   describe('Authentication Route Tests', () => {
